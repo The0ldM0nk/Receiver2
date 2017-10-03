@@ -44,6 +44,7 @@
   check unsigned int ReadSupplyVolts()
   void DisplaySupplyVolts()
   LOG to SD fails, and receiver stops, if HAB packet incorrect
+  Tracker Mode Listen > Set time and date from GPS  08:47:07  26/8/17 --- print lf or tracker listen log 09:49 26/8
 
   ******************************************************************************************************
 */
@@ -116,7 +117,7 @@ boolean SD_Found = false;                     //set if SD card found at program 
 
 unsigned long TrackerMode_Packets;            //running count of trackermode packets received
 unsigned int SearchMode_Packets;              //running count of searchmode packets received
-unsigned int TestMode_Packets;                //running count of searchmode packets received
+unsigned int TestMode_Packets;                //running count of testmode packets received
 unsigned long NoFix_Packets;                  //running count of No GPS fix packets received
 unsigned long last_LocalGPSfixmS;             //records millis() at last local GPS
 long fixes_till_set_time;                     //used to keep a count of how often to set system time from GPS time
@@ -155,6 +156,8 @@ File logFile;
 #endif
 
 #ifdef Use_NMEA_Bluetooth_Uplink
+#include <SendOnlySoftwareSerial.h>             //https://github.com/disq/i2c-gps-nav/blob/master/I2C_GPS_NAV/SendOnlySoftwareSerial.h
+SendOnlySoftwareSerial Bluetooth_Serial (Bluetooth_TX);
 #include "Generate_NMEA.h"
 #endif
 
@@ -185,7 +188,7 @@ void run_function()
 {
   //following a key press to change function this routine runs the appropriate function
   Serial.println();
-  Serial.print("Function ");
+  Serial.print(F("Function "));
   Serial.println(Function_Number);
 
 
@@ -335,14 +338,14 @@ menustart:
   {
     //this is lat,long and alt at low data rate
     Serial.println(F("Queue Enable GPS Power Off"));
-    send_ConfigCommand(Config0, ThisNode, GPSPowerSave, 1);
+    send_ConfigCommand(Config0, ThisNode, GPSHotFix, 1);
   }
 
   if (keypress == '6')
   {
     //this is lat,long and alt at low data rate
     Serial.println(F("Queue Disable GPS Power Off"));
-    send_ConfigCommand(Config0, ThisNode, GPSPowerSave, 0);
+    send_ConfigCommand(Config0, ThisNode, GPSHotFix, 0);
   }
 
   if (keypress == '7')
@@ -373,7 +376,7 @@ menustart:
 
   if ((keypress == 'B') || (keypress == 'b'))
   {
-    Function_Number = 5;                                       //bind only accepted in function 6
+    Function_Number = 5;                                       //bind only accepted in function 5
     listen_LoRa(BindMode, 0);
   }
 
@@ -478,6 +481,31 @@ menustart:
 }
 
 
+
+unsigned int RXBuffer_CRC(unsigned int startaddr, unsigned int endaddr)
+{
+  unsigned int i, CRC;
+
+  CRC = 0xffff;                                              //start value for CRC16
+  byte j;
+
+  for (i = startaddr; i <= endaddr; i++)                     //element 4 is first character after $$$$ at start
+  {
+    CRC ^= ((uint16_t) lora_RXBUFF[i] << 8);
+    for (j = 0; j < 8; j++)
+    {
+      if (CRC & 0x8000)
+        CRC = (CRC << 1) ^ 0x1021;
+      else
+        CRC <<= 1;
+    }
+  }
+  return CRC;
+
+}
+
+
+
 void enter_CalibrationOffset()
 {
   //allows calibration offset of recever to be changed from terminal keyboard
@@ -487,7 +515,7 @@ void enter_CalibrationOffset()
   while (Serial.available() == 0);
   {
     tempfloat = Serial.parseFloat();
-    Serial.print("Offset = ");
+    Serial.print(F("Offset = "));
     Serial.println(tempfloat, 5);
   }
   while (Serial.available() > 0)
@@ -546,21 +574,20 @@ boolean Is_Key_Valid()
 {
   //checks if protection key in RX bauffer matches
 
-  Serial.print(F("Received Key "));
+  Serial.print(F("Key is "));
   Serial.write(lora_RXBUFF[0]);
   Serial.write(lora_RXBUFF[1]);
   Serial.write(lora_RXBUFF[2]);
   Serial.write(lora_RXBUFF[3]);
-  Serial.println();
 
   if ( (lora_RXBUFF[0] == key0) && (lora_RXBUFF[1] == key1)  && (lora_RXBUFF[2] == key2)  && (lora_RXBUFF[3] == key3) )
   {
-    Serial.println(F("Key Valid"));
+    Serial.println(F(" - Valid"));
     return true;
   }
   else
   {
-    Serial.println(F("Key Not Valid"));
+    Serial.println(F(" - Not Valid"));
     return false;
   }
 }
@@ -607,7 +634,7 @@ byte listen_LoRa(byte lmode, unsigned long listen_mS)
   update_screen(current_screen_number);
   Serial.println();
   print_mode(modenumber);
-  Serial.println(F("Listen >"));
+  Serial.print(F("Listen > "));
   int_guard = true;                                         //allow switch press ints again
   lora_RXpacketCount = 0;
   Switchpress = 0;
@@ -771,7 +798,7 @@ byte check_for_Packet()
     digitalWrite(LED1, LOW);
     Serial.println();
     print_mode(modenumber);
-    Serial.println(F("Listen >"));
+    Serial.print(F("Listen > "));
     lora_RXONLoRa();                                //ready for next and clear flags
     return 1;
   }
@@ -781,7 +808,7 @@ byte check_for_Packet()
     Serial.println(F("Packet CRC Error"));
     Serial.println();
     print_mode(modenumber);
-    Serial.println(F("Listen >"));
+    Serial.print(F("Listen > "));
     lora_RXONLoRa();                                //ready for next
   }
 
@@ -979,24 +1006,24 @@ void record_TRtimedate()
 void print_TRData()
 {
   //prints the last received tracker location data
-  Serial.print("Last Tracker Fix ");
+  Serial.print(F("Last Tracker Fix "));
   Serialprint_addleadingZero(TRHour);
-  Serial.print(":");
+  Serial.print(F(":"));
   Serialprint_addleadingZero(TRMin);
-  Serial.print(":");
+  Serial.print(F(":"));
   Serialprint_addleadingZero(TRSec);
-  Serial.print("  ");
+  Serial.print(F("  "));
   Serialprint_addleadingZero(TRDay);
-  Serial.print("/");
+  Serial.print(F("/"));
   Serialprint_addleadingZero(TRMonth);
-  Serial.print("/");
+  Serial.print(F("/"));
   Serialprint_addleadingZero(TRYear);
 
-  Serial.print("  ");
+  Serial.print(F("  "));
   Serial.print(TRLat, 5);
-  Serial.print("  ");
+  Serial.print(F("  "));
   Serial.print(TRLon, 5);
-  Serial.print("  ");
+  Serial.print(F("  "));
   Serial.println(TRAlt);
 }
 
@@ -1058,6 +1085,10 @@ void record_LocalData()
   LocalLat = gps.location.lat();
   LocalLon = gps.location.lng();
   LocalAlt = gps.altitude.meters();
+  if (LocalAlt > 60000)
+  {
+  LocalAlt = 0;  
+  }
   LocalHour = hour(t);
   LocalMin = minute(t);
   LocalSec = second(t);
@@ -1071,23 +1102,23 @@ void record_LocalData()
 void print_LocalData()
 {
   //prints the local location fix data and time
-  Serial.print("Last Local Fix ");
+  Serial.print(F("Last Local Fix "));
   Serialprint_addleadingZero(LocalHour);
-  Serial.print(":");
+  Serial.print(F(":"));
   Serialprint_addleadingZero(LocalMin);
-  Serial.print(":");
+  Serial.print(F(":"));
   Serialprint_addleadingZero(LocalSec);
-  Serial.print("  ");
+  Serial.print(F("  "));
   Serialprint_addleadingZero(LocalDay);
-  Serial.print("/");
+  Serial.print(F("/"));
   Serialprint_addleadingZero(LocalMonth);
-  Serial.print("/");
+  Serial.print(F("/"));
   Serialprint_addleadingZero(LocalYear);
-  Serial.print("  ");
+  Serial.print(F("  "));
   Serial.print(LocalLat, 5);
-  Serial.print("  ");
+  Serial.print(F("  "));
   Serial.print(LocalLon, 5);
-  Serial.print("  ");
+  Serial.print(F("  "));
   Serial.println(LocalAlt);
 
 }
@@ -1295,58 +1326,63 @@ void process_Packet()
     lora_RXBuffPrint(PrintASCII);                        //print packet contents as ASCII
     Serial.println();
     writescreen_7();
+    digitalWrite(BUZZ, HIGH);
+    delay(3);                                            //a not very loud beep, more a click really
+    digitalWrite(BUZZ, LOW);
+    delay(1000);                                         //so we have enough time to see packet on screen
     return;
   }
 
 
   if (lora_RXPacketType == Bind )
   {
-    if ((Function_Number == 5) && Is_Key_Valid())      //only accept incoming bind request when in function 5
-    {
 
-      ptr = 4;                                         //bind packet has 4 bytes of key
-      Serial.println(F("Tracker Bind Received"));
+    Serial.print(F("Tracker Bind Received - "));
+    ptr = 4;                         //set pointer to start of Bind data in lora_RXBUFF 
+
+    if (!Is_Key_Valid())
+    {
+     return;
+    }
+
+    if ((Function_Number != 5))      //only accept incoming bind request when in function 5
+    {
+      Serial.println(F("Not in Bind Mode"));
+      return;
+    }
+
+    Print_CRC_Bind_Memory();
+
+    tempint = (lora_RXBUFF[lora_RXEnd] * 256) + (lora_RXBUFF[lora_RXEnd - 1]);
+
+    Serial.print(F("Transmitted CRC "));
+    Serial.println(tempint, HEX);
+    returnedCRC = RXBuffer_CRC(ptr, (lora_RXEnd - 2));
+    Serial.print(F("Received CRC "));
+    Serial.println(returnedCRC, HEX);
+
+
+    if (returnedCRC == tempint)
+    {
+      Serial.println(F("Accepted"));
+      writescreen_Alert2();
 
       for (index = addr_StartBindData; index <= addr_EndBindData; index++)
       {
         tempbyte = lora_RXBUFF[ptr++];
         Memory_WriteByte(index, tempbyte);
       }
-
-      Print_All_Memory();
-      read_Settings_Memory();
-      Print_All_Memory();
-
-      print_Powers();
+      read_Settings_Memory();             //now bring the new settings into use
       Print_CRC_Bind_Memory();
-
-      tempint = (lora_RXBUFF[lora_RXEnd] * 256) + (lora_RXBUFF[lora_RXEnd - 1]);
-
-      Serial.print(F("Transmitted CRC "));
-      Serial.println(tempint, HEX);
-
-      if (returnedCRC == tempint)
-      {
-        Serial.println();
-        Serial.println(F("Bind Accepted"));
-        Serial.println();
-        writescreen_Alert2();
-      }
-      else
-      {
-        Serial.println();
-        Serial.println(F("Bind Rejected"));
-        Serial.println();
-        writescreen_Alert7();
-      }
     }
     else
     {
-      Serial.println(F("Bind Ignored - Wrong Key or Function"));
+      Serial.println(F("Rejected"));
+      writescreen_Alert7();
+      return;
     }
-    return;
-
   }
+
 
 
   if (lora_RXPacketType == Wakeup)
@@ -1475,21 +1511,21 @@ void process_Sensor1()
   lPressure = Read_Float(8, lora_RXBUFF);
   lAltitude = Read_Float(12, lora_RXBUFF);
 
-  Serial.print("Temperature: ");
+  Serial.print(F("Temperature: "));
   Serial.print(lTemperature, 2);
-  Serial.println(" degrees C");
+  Serial.println(F(" degrees C"));
 
-  Serial.print("%RH: ");
+  Serial.print(F("%RH: "));
   Serial.print(lHumidity, 2);
-  Serial.println(" %");
+  Serial.println(F(" %"));
 
-  Serial.print("Pressure: ");
+  Serial.print(F("Pressure: "));
   Serial.print(lPressure, 2);
-  Serial.println(" Pa");
+  Serial.println(F(" Pa"));
 
-  Serial.print("Altitude: ");
+  Serial.print(F("Altitude: "));
   Serial.print(lAltitude, 2);
-  Serial.println("m");
+  Serial.println(F("m"));
 }
 
 
@@ -1587,7 +1623,7 @@ void print_CurrentLoRaSettings()
   float tempfloat;
   int tempint;
   byte regdata;
-  unsigned int bw;
+  unsigned long bw;
 
   tempfloat = lora_GetFreq();
   Serial.print(tempfloat, 3);
@@ -1785,12 +1821,12 @@ void SD_WriteHABpacket_Log()
   if (SD_Found)
   {
     Serial.println();
-    Serial.print("Log to SD ");
+    Serial.print(F("Log to SD "));
     logFile.write(lora_RXSource);
-    logFile.print(",");
+    logFile.print(F(","));
     SD_addtimeanddate_Log();
 
-    logFile.print(",");
+    logFile.print(F(","));
     logFile.write(lora_RXPacketType);
     logFile.write(lora_RXDestination);
     logFile.write(lora_RXSource);
@@ -1805,7 +1841,7 @@ void SD_WriteHABpacket_Log()
   }
   else
   {
-    Serial.println("No SD card for Logging");
+    Serial.println(F("No SD card for Logging"));
   }
 }
 
@@ -1818,21 +1854,21 @@ void SD_WriteBinarypacket_Log()
   if (SD_Found)
   {
     Serial.println();
-    Serial.print("Log to SD ");
+    Serial.print(F("Log to SD "));
     logFile.write(lora_RXSource);
-    logFile.print(",");
+    logFile.print(F(","));
     SD_addtimeanddate_Log();
-    logFile.print(",");
+    logFile.print(F(","));
     SD_addLatLonAlt_Log();
 
     logFile.write(13);
     logFile.write(10);
     logFile.flush();
-    Serial.println(" - Flushed file");
+    Serial.println(F(" - Flushed file"));
   }
   else
   {
-    Serial.println("No SD card for Logging");
+    Serial.println(F("No SD card for Logging"));
   }
 }
 
@@ -1842,17 +1878,17 @@ boolean setup_SDLOG()
 {
   //checks if the SD card is present and can be initialised
 
-  Serial.print("SD card...");
+  Serial.print(F("SD card..."));
 
   if (!SD.begin(SD_CS))
   {
-    Serial.println("Failed, or not present");
+    Serial.println(F("Failed, or not present"));
     SD_Found = false;
     writescreen_Alert6();
     return false;                         //don't do anything more:
   }
 
-  Serial.print("Initialized OK");
+  Serial.print(F("Initialized OK"));
   SD_Found = true;
 
   char filename[] = "Track000.txt";
@@ -1866,8 +1902,8 @@ boolean setup_SDLOG()
     }
   }
 
-  Serial.print("...Writing to ");
-  Serial.print("Track0");
+  Serial.print(F("...Writing to "));
+  Serial.print(F("Track0"));
   Serial.write(filename[6]);
   Serial.write(filename[7]);
   Serial.print(F(".txt"));
@@ -1880,7 +1916,7 @@ void printlog_addleadingZero(byte temp)
 {
   if (temp < 10)
   {
-    logFile.print("0");
+    logFile.print(F("0"));
   }
   logFile.print(temp);
 }
@@ -1890,7 +1926,7 @@ void Serialprint_addleadingZero(byte temp)
 {
   if (temp < 10)
   {
-    Serial.print("0");
+    Serial.print(F("0"));
   }
   Serial.print(temp);
 }
@@ -1899,15 +1935,15 @@ void Serialprint_addleadingZero(byte temp)
 void SD_addtimeanddate_Log()
 {
   printlog_addleadingZero(TRHour);
-  logFile.print(":");
+  logFile.print(F(":"));
   printlog_addleadingZero(TRMin);
-  logFile.print(":");
+  logFile.print(F(":"));
   printlog_addleadingZero(TRSec);
-  logFile.print(",");
+  logFile.print(F(","));
   printlog_addleadingZero(TRDay);
-  logFile.print("/");
+  logFile.print(F("/"));
   printlog_addleadingZero(TRMonth);
-  logFile.print("/");
+  logFile.print(F("/"));
   printlog_addleadingZero(TRYear);
 }
 
@@ -1915,9 +1951,9 @@ void SD_addtimeanddate_Log()
 void SD_addLatLonAlt_Log()
 {
   logFile.print(TRLat, 6);
-  logFile.print(",");
+  logFile.print(F(","));
   logFile.print(TRLon, 6);
-  logFile.print(",");
+  logFile.print(F(","));
   logFile.print(TRAlt, 6);
   logFile.write(13);
   logFile.write(10);
@@ -1931,7 +1967,7 @@ void switch_press()
 
   if (!int_guard)                         //unless the guard is true ignore interrupt
   {
-    Serial.print("Switch Interrupt Ignored");
+    Serial.print(F("Switch Interrupt Ignored"));
     return;
   }
 
@@ -1956,10 +1992,6 @@ void switch_press()
     Serial.println(F("Switch D"));
     Switchpress = SWITCH_D;
     Function_Number++;
-  }
-  else
-  {
-    Serial.println(F("ERROR - No Switch pressed"));
   }
 
   ramc_Receiver_Mode == Portable_Mode;    //switch pressed so switch to portable mode
@@ -2030,7 +2062,7 @@ void Print_All_Memory()
     {
       memory_Ldata = Memory_ReadByte(memory_Laddr);
       if (memory_Ldata < 0x10) {
-        Serial.print("0");
+        Serial.print(F("0"));
       }
       Serial.print(memory_Ldata, HEX);                       //print the register number
       Serial.print(F(" "));
@@ -2045,7 +2077,7 @@ void Print_All_Memory()
 void Print_CRC_All_Memory()
 {
   unsigned int returnedCRC = Memory_CRC(addr_StartMemory, addr_EndMemory);
-  Serial.print(F("CRC_All_Memory "));
+  Serial.print(F("All Memory CRC "));
   Serial.println(returnedCRC, HEX);
 }
 
@@ -2053,14 +2085,14 @@ void Print_CRC_All_Memory()
 void Print_CRC_Config_Memory()
 {
   unsigned int returnedCRC = Memory_CRC(addr_StartConfigData, addr_EndConfigData);
-  Serial.print(F("CRC_Config_Memory "));
+  Serial.print(F("Config Memory CRC "));
   Serial.println(returnedCRC, HEX);
 }
 
-void Print_CRC_Bind_Memory()
+unsigned int Print_CRC_Bind_Memory()
 {
   unsigned int returnedCRC = Memory_CRC(addr_StartBindData, addr_EndBindData);
-  Serial.print(F("CRC_Bind_Memory "));
+  Serial.print(F("Local Bind CRC "));
   Serial.println(returnedCRC, HEX);
 }
 
@@ -2156,11 +2188,11 @@ void print_last_HABpacket()
   unsigned int address;
   address = addr_StartHABPayloadData;
 
-  Serial.print("Last HAB Packet  ");
+  Serial.print(F("Last HAB Packet  "));
   do
   {
     memorydata = Memory_ReadByte(address);
-    if ((memorydata == 0xFF) || (address >= addr_EndPayloadData))
+    if ((memorydata == 0xFF) || (address >= addr_EndHABPayloadData))
     {
       break;
     }
@@ -2235,8 +2267,6 @@ void display_frequencies_memory()
 {
   //display the frequncies set in memory, good check to see if all is well with memory
   unsigned long freq_temp;
-  freq_temp = Memory_ReadULong(addr_TrackerMode_Frequency);
-  Serial.println(F("Frequencies stored in Memory"));
   freq_temp = Memory_ReadULong(addr_TrackerMode_Frequency);
   Serial.print(F("TrackerMode "));
   Serial.println(freq_temp);
@@ -2425,6 +2455,7 @@ void setup()
   int tempint;
   byte index;
 
+  pinMode(BUZZ, OUTPUT);                    //setup pin for PCB LED
   pinMode(LED1, OUTPUT);                    //setup pin for PCB LED
   led_Flash(2, 250);
 
@@ -2511,7 +2542,7 @@ void setup()
 
   if (!lora_CheckDevice())
   {
-    Serial.println("LoRa Device Error");
+    Serial.println(F("LoRa Device Error"));
     led_Flash(40, 50);
   }
 
@@ -2548,12 +2579,6 @@ void setup()
 #endif
 
   Serial.println();
-
-#ifdef NMEAUplink
-  Bluetooth_Serial_Setup();
-#endif
-
-  Serial.println();
   print_last_HABpacket();
   print_TRData();
   print_LocalData();
@@ -2582,8 +2607,7 @@ void setup()
   setup_interrupts();
 
 #ifdef Use_NMEA_Bluetooth_Uplink
-  Bluetooth_Serial.println("Bluetooth Active");
-  Serial.println("LoRaTracker Receiver2 - Bluetooth Active");
+  Bluetooth_Serial.println(F("Bluetooth Active"));
 #endif
 
 }

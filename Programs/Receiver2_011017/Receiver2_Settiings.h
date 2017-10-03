@@ -35,7 +35,7 @@ To Do:
 
 //#define ClearConfigData                 //zero the config memory
 //#define ClearAllMemory                  //Clears from start memory to end memory, normally 1kbyte, needs to be followed by ConfigureDefaults
-#define ConfigureDefaults                 //Configure settings from default program defaults, these are then stored in memory
+//#define ConfigureDefaults                 //Configure settings from default program defaults, these are then stored in memory
 #define ConfigureFromMemory               //Configure settings from values stored in memory, this needs to be the active mode for bind to work
 
 #define CalibrateTone                     //comment in to have a calibrate tone at startup
@@ -46,7 +46,6 @@ To Do:
 #define DEBUG                             //if defined debug mode used, results in more diagnostics to serial terminal    
 //#define ReceiveBind                     //during flight allows for a bind to be received    
 
-//#define USE_AFSK_RTTY_Upload            //if definded will upload HAB packet as AFSK RTTY 
 
 
 //**************************************************************************************************
@@ -57,7 +56,7 @@ To Do:
 const unsigned long TrackerMode_Frequency = 434400000;   
 
 //Search mode
-const unsigned long SearchMode_Frequency = 434400000;   
+const unsigned long SearchMode_Frequency = 434300000;   
 
 //Command mode
 const unsigned long CommandMode_Frequency = 434500000;   
@@ -66,7 +65,7 @@ const unsigned long CommandMode_Frequency = 434500000;
 const unsigned long BindMode_Frequency = 434100000;      
 
 //this is the LoRa module frequency calibration offset in Hertz
-const int CalibrationOffset = -3500;                    
+const int CalibrationOffset = 500;                    
 
 
 //**************************************************************************************************
@@ -145,8 +144,8 @@ const float TestLongitude = -3.18136;
 const float TestAltitude = 48;
 
 #define GPS_Library "UBLOX_SerialGPS.h"            //define the GPS program routines to use here
-//#define GPSPROG "UBLOX_I2CGPS.h"           //define the GPS program routines to use here
-//#define GPSPROG "No_GPS.h"           //define the GPS program routines to use here
+//#define GPS_Library "UBLOX_I2CGPS.h"           //define the GPS program routines to use here
+//#define GPS_Library "No_GPS.h"           //define the GPS program routines to use here
 
 
 //**************************************************************************************************
@@ -163,6 +162,8 @@ const float TestAltitude = 48;
 const byte contrast5110 = 55;
 
 #define Display_Library "Display_5110.h"                    //define the display Library file to use here
+//#define Display_Library "Display_ST7735.h"                    //define the display Library file to use here
+//#define Display_Library "Display_SD1306_AVR.h"                    //define the display Library file to use here
 
 //#include "Display_5110.h"                                 //define file to load for screen
 //#include Display_Library
@@ -196,7 +197,6 @@ const int tonelowHz = 650;                   //low tone in Hertz
 // 10) Bluetooth Options
 //**************************************************************************************************
 
-#define USE_SendOnlySoftwareSerial
 #define Use_NMEA_Bluetooth_Uplink
 #define BluetoothBaud 9600 
 const byte Bluetooth_Buff_Size = 128;         //size of buffer for NMEA output
@@ -211,13 +211,14 @@ const byte Bluetooth_Buff_Size = 128;         //size of buffer for NMEA output
 #define OptionOff 0
 #define OptionOn 1
 
-const byte option_SearchEnable = OptionOn;
-const byte option_FSKRTTYEnable = OptionOff;        
-const byte option_CheckFence = OptionOff;           
-const byte option_ShortPayloadEnable = OptionOff;
-const byte option_RepeatEnable = OptionOff;         
-const byte option_AddressStrip = OptionOff;         
-const byte option_GPSPowerSave = OptionOn;         
+const char option_SearchEnable = OptionOn;
+const char option_TXEnable = OptionOn;
+const char option_FSKRTTYEnable = OptionOn;
+const char option_CheckFence = OptionOn;
+const char option_ShortPayloadEnable = OptionOff;
+const char option_RepeatEnable = OptionOff;
+const char option_AddressStrip = OptionOff;
+const char option_GPSPowerSave = OptionOn;      
 
 #define option_SearchEnable_SUM (option_SearchEnable*1)
 #define option_FSKRTTYEnable_SUM (option_FSKRTTYEnable*4)
@@ -256,7 +257,7 @@ const long  adc_constant = 1109860;         //if processor self read of its supp
 // 14) HAB2 settings
 //**************************************************************************************************
 
-char Flight_ID[15] = "LoRaTracker1";
+char Flight_ID[15] = "MYHAB";
 const float west_fence = -32;
 const float east_fence = 45;
 #define SleepSecs 10                      //sleep time in seconds after each TX loop 

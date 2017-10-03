@@ -102,7 +102,6 @@ void update_screen(byte screennumber)
 }
 
 
-#ifdef Using_Display_5110
 void writescreen_1()
 {
   Display_SetTextSize(1);
@@ -114,6 +113,10 @@ void writescreen_1()
  {
   add_Tracker_DD();
  }
+
+  Display_SetCurPos(0, 4);
+  disp.print(F("SNR "));
+  writeSNR(4, 4);
   
   Display_SetCurPos(0, 5);
   disp.print("Tracker ");
@@ -134,7 +137,10 @@ void writescreen_2()
   {
    add_Tracker_DD();
   }
- 
+
+  Display_SetCurPos(0, 4);
+  disp.print(F("SNR "));
+  writeSNR(4, 4);
   Display_SetCurPos(0, 5);
   disp.print("Search  ");
   disp.print(SearchMode_Packets);
@@ -495,8 +501,6 @@ void writescreen_Alert9()
   disp.print("  GPS Error");
   Display_Update();
 }
-
-#endif
 
 
 void revert_Screen()
