@@ -10,8 +10,3 @@ The programs requre the installation of the current LoRaTracker Library files se
 
 https://github.com/LoRaTracker/LoRaTracker-Library
 
-The programs in here are;
-
-Receiver2_xxxxxx - A HAB tracker receiver for bench terminal and portable use
-
-I2C_Scanner - a basic I2C scanner, reports any I2C devices found

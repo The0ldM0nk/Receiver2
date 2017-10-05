@@ -125,7 +125,7 @@ const char key3 = 'a';
 
 #define GPS_in_MB2                          //if using a MikroBus board specify the socket for the GPS
 //#define DebugNoGPS                        //test mode, does not use GPS used test location instead
-//#define TestLocation                      //uses test locations as defined in Flight_Settings
+//#define TestLocation                      //uses test location for tracker position
 
 #define WhenNoGPSFix LeaveOn                //What to do with GPS power when there is no fix at ends of wait period (LeaveOn or LeaveOff)
 #define GPSPowerControl Enabled             //Some tracker boards can remove the power form the GPS

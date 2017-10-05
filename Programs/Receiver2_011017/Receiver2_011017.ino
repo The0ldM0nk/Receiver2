@@ -7,7 +7,7 @@
 //
 //**************************************************************************************************
 
-#define programname "LoRaTracker_Receiver2_130817"
+#define programname "LoRaTracker_Receiver2_011017"
 #define programversion "V2.1"
 #define aurthorname "Stuart Robinson - www.LoRaTracker.uk"
 
@@ -15,7 +15,7 @@
 #include <avr/pgmspace.h>
 
 #include "Program_Definitions.h"
-#include "LoRaTracker_Receiver2_Settings.h"
+#include "Receiver2_Settings.h"
 
 /*
 **************************************************************************************************
@@ -45,6 +45,7 @@
   void DisplaySupplyVolts()
   LOG to SD fails, and receiver stops, if HAB packet incorrect
   Tracker Mode Listen > Set time and date from GPS  08:47:07  26/8/17 --- print lf or tracker listen log 09:49 26/8
+  Check use of interrup library
 
   ******************************************************************************************************
 */
@@ -114,6 +115,7 @@ byte modenumber;                              //records which set of LoRa settin
 
 boolean int_guard = false;                    //used to prevent multiple interrupts
 boolean SD_Found = false;                     //set if SD card found at program startup
+boolean GPS_Config_Error;                     //set if error found setting up GPS
 
 unsigned long TrackerMode_Packets;            //running count of trackermode packets received
 unsigned int SearchMode_Packets;              //running count of searchmode packets received
@@ -156,13 +158,13 @@ File logFile;
 #endif
 
 #ifdef Use_NMEA_Bluetooth_Uplink
-#include <SendOnlySoftwareSerial.h>             //https://github.com/disq/i2c-gps-nav/blob/master/I2C_GPS_NAV/SendOnlySoftwareSerial.h
+#include <SendOnlySoftwareSerial.h>                //https://github.com/disq/i2c-gps-nav/blob/master/I2C_GPS_NAV/SendOnlySoftwareSerial.h
 SendOnlySoftwareSerial Bluetooth_Serial (Bluetooth_TX);
 #include "Generate_NMEA.h"
 #endif
 
+#include "PinChangeInterrupt.h"                    //https://github.com/NicoHood/PinChangeInterrupt
 #include "Binary2.h"
-#include "PinChangeInterrupt.h"
 #include "Receiver2_Screens.h"
 
 #define max_functions 5                             //number of functions in main program loop
@@ -2483,7 +2485,7 @@ void setup()
   digitalWrite(DISP_CS, HIGH);
 
 
-  GPS_On(UseGPSPowerControl);
+  GPS_On(DoGPSPowerSwitch);
 
   SPI.begin();                               //initialize SPI:
   SPI.beginTransaction(SPISettings(4000000, MSBFIRST, SPI_MODE0));
